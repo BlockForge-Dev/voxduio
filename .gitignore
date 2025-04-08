@@ -1,0 +1,26 @@
+# --- Rust ---
+/backend/target/
+/backend/target/**
+
+**/*.rs.bk
+**/*.rlib
+**/*.rmeta
+**/*.d
+Cargo.lock
+Cargo.toml.bk
+
+# --- Node/Next.js ---
+/node_modules/
+/.next/
+/out/
+/.env.local
+.env*
+
+# --- OS/Editor Files ---
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+.idea/
+.vscode/
