@@ -1,50 +1,74 @@
-use reqwest::{Client, Error};
-use std::fs::{File, create_dir_all};
-use std::path::Path;
+use reqwest::Client;
+use std::{
+    env,
+    fs::{create_dir_all, File},
+    io::Write,
+    path::Path,
+};
 use uuid::Uuid;
-use std::io::Write;
 
-/// Coqui API URL
-const COQUI_API_URL: &str = "https://api.coqui.ai/tts";  // Replace with the actual Coqui API endpoint
+/// Core function: saves audio to a specified path
+pub async fn generate_tts_audio_to_path(
+    text: &str,
+    voice_id: &str,
+    output_path: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let api_key = env::var("ELEVENLABS_API_KEY")
+        .expect("ELEVENLABS_API_KEY must be set in .env");
 
-/// Generate voice from the provided text using Coqui TTS API
-pub async fn generate_voice(text: &str, voice: Option<String>, speed: Option<f32>) -> Result<String, Error> {
+    let url = format!(
+        "https://api.elevenlabs.io/v1/text-to-speech/{}/stream",
+        voice_id
+    );
+
     let client = Client::new();
-    
-    // Build the request body
-    let mut params = std::collections::HashMap::new();
-    params.insert("text", text.to_string());
-    if let Some(v) = voice {
-        params.insert("voice", v);
-    }
-    if let Some(s) = speed {
-        params.insert("speed", s.to_string());
-    }
 
-    // Send POST request to Coqui TTS API
     let response = client
-        .post(COQUI_API_URL)
-        .json(&params)
+        .post(&url)
+        .header("xi-api-key", api_key)
+        .header("accept", "audio/mpeg")
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "text": text,
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+            }
+        }))
         .send()
         .await?;
 
     if response.status().is_success() {
-        // Get the audio file (this assumes that the API returns the audio as raw bytes)
         let audio_bytes = response.bytes().await?;
 
-        // Save audio to file system
-        let audio_filename = format!("{}.mp3", Uuid::new_v4());
-        let audio_path = Path::new("audio_files").join(&audio_filename);
+        if let Some(parent) = Path::new(output_path).parent() {
+            create_dir_all(parent)?;
+        }
 
-        // Create audio_files directory if it doesn't exist
-        create_dir_all("audio_files").unwrap();
+        File::create(output_path)?.write_all(&audio_bytes)?;
 
-        let mut file = File::create(audio_path.clone())?;
-        file.write_all(&audio_bytes)?;
-
-        // Return the path or URL of the saved file
-        Ok(format!("/audio/{}", audio_filename))
+        Ok(output_path.to_string())
     } else {
-        Err(reqwest::Error::new(response.status(), "Failed to generate voice"))
+        let error_text = response.text().await?;
+        Err(format!("TTS failed: {}", error_text).into())
     }
+}
+
+/// Wrapper function: saves to a random filename in `audio_files/`
+/// Wrapper function: saves to a random filename in `audio_files/`
+pub async fn generate_tts_audio(
+    text: &str,
+    voice_id: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let filename = format!("{}.mp3", Uuid::new_v4());
+    let path = format!("audio_files/{}", filename);
+
+    // ✅ Save the filename to return later
+    let audio_filename = filename.clone();
+
+    // Generate the TTS audio and save it to the path
+    generate_tts_audio_to_path(text, voice_id, &path).await?;
+
+    // ✅ Return just the filename (not the full path)
+    Ok(audio_filename)
 }

@@ -1,29 +1,28 @@
 use std::error::Error;
 use lopdf::Document;
 
-/// Enum to define the type of input (Raw Text or PDF bytes)
+/// InputType can be either a path to a PDF file or raw text
 pub enum InputType {
-    RawText(String),
-    PdfBytes(Vec<u8>),
+    FilePath(String),
+    Text(String), //  Make sure this is added
 }
 
-/// Extract text from either raw text or PDF bytes.
-pub fn extract_text(input: InputType) -> Result<String, Box<dyn Error>> {
+
+/// Extracts text from either a PDF file or returns the raw text input
+pub fn extract_text(input: InputType) -> Result<String, Box<dyn Error + Send + Sync>> {
     match input {
-        // If raw text is provided, return it directly
-        InputType::RawText(text) => Ok(text),
+        InputType::FilePath(path) => {
+            let doc = Document::load(path)?;
+            let mut text = String::new();
 
-        // If PDF bytes are provided, extract text from the PDF
-        InputType::PdfBytes(bytes) => {
-            let doc = Document::load_mem(&bytes)?;
-            let mut full_text = String::new();
-
-            for (_, page) in doc.get_pages() {
-                let content = doc.extract_text(&[page])?;
-                full_text.push_str(&content);
+            for object_id in doc.get_pages().values() {
+                if let Ok(content) = doc.extract_text(&[object_id.0]) {
+                    text.push_str(&content);
+                }
             }
 
-            Ok(full_text)
+            Ok(text)
         }
+        InputType::Text(s) => Ok(s), // Handles plain text input
     }
 }

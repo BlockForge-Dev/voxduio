@@ -1,19 +1,13 @@
-use axum::{
-    response::{IntoResponse, Json},
-    http::StatusCode,
-};
+use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub  struct ApiResponse<T>{
+pub struct ApiResponse<T> {
     pub status: String,
-    pub message: Optin<String>,
+    pub message: Option<String>,
     pub data: Option<T>,
 }
 
-pub fn json_response<T: Serialize>(
-    status: StatusCode,
-    body:ApiResponse<T>,
-) -> impl IntoResponse{
-    (status, Json(body))
+pub fn json_response<T: Serialize>(status: StatusCode, payload: ApiResponse<T>) -> Response {
+    (status, Json(payload)).into_response()
 }

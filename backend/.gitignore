@@ -1,0 +1,5 @@
+target/
+.env
+audio_files/
+uploads/
+.DS_Store
